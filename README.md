@@ -5,6 +5,7 @@ This repository contains the code and configurations required to deploy a machin
 ## Repository Structure
 
 - `pipeline.py`: **This is the main script that runs the entire machine learning pipeline, from data acquisition to model training and evaluation, and finally uploading the results to AWS S3**.
+- `app.py`: **This is the main script that runs the cloud classifier web application. The app can be run locally with the following command: streamlit run app.py**
 - `src/`: This directory contains the Python modules that the main pipeline script uses. Each module is responsible for different stages of the pipeline:
   - `acquire_data.py`: Functions for getting data from a URL and constructing/saving the dataset.
   - `eda.py`: Functions to generate data visualizations and save them locally.
@@ -12,7 +13,7 @@ This repository contains the code and configurations required to deploy a machin
   - `train_model.py`: Functions to train the machine learning model, evaluate its performance, and save model artifacts.
   - `aws_utils.py`: Utilities for uploading artifacts to AWS S3.
 - `config/`: Contains YAML/logging configuration files that control various aspects of the pipeline, such as data sources, model parameters, and AWS settings.
-- `artifacts/`: Local directory where artifacts from the pipeline will be saved.
+- `artifacts/`: Local directory where artifacts from the pipeline, including models, are saved.
 - `data/`: Local directory where data needed for model training and feature generation will be stored.
 - `dockerfiles/': Contains Docker files for both the pipeline and unit_testing
   - `Dockerfile.dockerfile`: Defines Docker environment for running the pipeline.
@@ -59,6 +60,8 @@ aws sso login
 
 The command should take you to an external website where you can complete the authentication process.
 
+### AWS IAM Instance Role
+Ensure that you have IAM EC2 Instance Role set up with rights to access S3, ECR, and ECS.
 
 To build the Docker container for the main pipeline, run:
 
@@ -100,10 +103,53 @@ docker build -f .\dockerfiles\Dockerfile_testing.dockerfile -t <DESIRED IMAGE NA
 docker build -f ./dockerfiles/Dockerfile_testing.dockerfile -t <DESIRED IMAGE NAME - DIFFERENT FROM ABOVE> .
 ```
 
-To run the tests:
+### ECR
+
+To build the streamlit image, I ran these commands step-by-step:
 
 ```bash
-docker run -v ${HOME}/.aws/:/root/.aws/:ro --name <DESIRED CONTAINER NAME - DIFFERENT FROM ABOVE> <DESIRED IMAGE NAME - DIFFERENT FROM ABOVE>
+docker build -t app_image .
 ```
 
-Once the pipeline has been run, you should find that the appropriate artifacts have been both uploaded to S3 and saved locally in the locations aforementioned.
+```bash
+aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/f7r1g2f1
+```
+
+```bash
+docker tag app_image:latest public.ecr.aws/f7r1g2f1/cloud_app_rpi0559:latest
+```
+
+Finally, I pushed the change into the existing ECR repository.
+
+```bash
+docker push public.ecr.aws/f7r1g2f1/cloud_app_rpi0559:latest
+```
+
+### ECS
+
+To begin formal deployment of your streamlit app to the web, create a new cluster in ECS with the name of your choice.
+- Make sure you create a new Security Group with Northwestern VPN IP `165.124.160.0/21`.
+    - Also ensure you are giving access to HTTP port 80 within the Dockerfile.
+    - Finally, ensure that you grant access to FARGATE.
+
+After thus, create a new Task Definition with the name of your choice.
+- If you have your own SSH Key Pair, I will recommend matching it.
+- Create a Task Execution Role that grants access to use S3, ECS, ECR.
+- Name the container whatever you please.
+- Designate the port as 80 as noted in Dockerfile in Port Mappings.
+- If you like, add a Key-Value pair of `BUCKET_NAME` and your S3 bucket name in Environment Variable.
+
+Finally, create a service for the app.
+- For ECS, I made sure to use `FARGATE` with streamlit application, instead of EC2.
+
+If all checks out, you will be able to access the streamlit application via the open address set within the Networking tab.
+
+### Unit Testing
+
+To run the tests, make sure your terminal is configured to the root of the directory. Then, enter the following command.
+
+```bash
+pytest tests/app_test.py
+```
+
+All 4 tests should pass.

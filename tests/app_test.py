@@ -5,7 +5,7 @@ import sys
 
 parent_dir = Path(__file__).resolve().parent.parent
 src_dir = parent_dir / 'src'
-sys.path.append(str(src_dir))
+sys.path.append(str(parent_dir))
 
 from app import load_model, predict
 
