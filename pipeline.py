@@ -69,13 +69,19 @@ def main():
 
     rf_model = train_model.train_model(x_train, y_train)
 
+    lr_model = train_model.train_second_model(x_train, y_train)
+
     # Save model
 
     train_model.save_model((artifacts_path), rf_model)
 
+    train_model.save_second_model((artifacts_path), lr_model)
+
     # Score model and save metrics
 
     train_model.score_model((artifacts_path), rf_model, x_test, y_test)
+
+    train_model.score_second_model((artifacts_path), lr_model, x_test, y_test)
 
     # Upload all artifacts to S3
 

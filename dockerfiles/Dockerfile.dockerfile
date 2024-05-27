@@ -1,4 +1,4 @@
-FROM python:3.10
+FROM --platform=linux/x86_64 python:3.9-slim
 
 WORKDIR /app
 
@@ -8,4 +8,6 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-CMD ["python", "pipeline.py"]
+EXPOSE 80
+
+CMD ["streamlit", "run", "--server.port=80",  "app.py"]

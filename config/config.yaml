@@ -23,7 +23,7 @@ generate_features:
     col_b: visible_entropy
 
 aws: 
-  upload: True
+  upload: False
   bucket_name: rpi0559-test
   prefix: experiments
 

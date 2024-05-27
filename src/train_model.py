@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 import sklearn
 import sklearn.ensemble
+import sklearn.linear_model
 from joblib import dump
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,45 @@ def train_model(x_train: pd.DataFrame, y_train: pd.DataFrame, n_estimators: int 
         sys.exit(1)
 
 
+def train_second_model(x_train: pd.DataFrame, y_train: pd.DataFrame, n_estimators: int = 10,
+                max_depth: int = 10) -> sklearn.linear_model.LogisticRegression:
+    """Performs train/test split of data and trains model
 
+    Args:
+        x_train: Pandas dataframe of independent training data
+        y_train: Pandas dataframe of dependent training data
+        n_estimators: Number of tree estimators (default = 10)
+        max_depth: Max depth of each tree (default = 10)
+
+    """
+
+    try:
+        lr = sklearn.linear_model.LogisticRegression()
+        lr.fit(x_train, y_train)
+        logger.info('Random Forest Classifier successfully trained')
+        return lr
+    except TypeError as e:
+        logger.error('Model could not be trained: %s', e)
+        sys.exit(1)
+    except NameError as e:
+        logger.error('Model could not be trained: %s', e)
+        sys.exit(1)
+
+def save_second_model(data_path: Path, trained_model: sklearn.linear_model.LogisticRegression):
+    """Saves training data and test data for reproducability
+
+    Args:
+        data_path: Path where model will be stored
+        trained_model: Trained model object (e.g. 'lr')
+
+    """
+
+    try:
+        dump(trained_model, data_path / 'lr_classifer.joblib')
+        logger.info('Trained model has been saved to %s', data_path)
+    except NameError as e:
+        logger.error('Model could not be trained: %s', e)
+        sys.exit(1)
 
 def save_model(data_path: Path, trained_model: sklearn.ensemble._forest.RandomForestClassifier):
     """Saves training data and test data for reproducability
@@ -139,4 +178,68 @@ def score_model(data_path: Path, model: sklearn.ensemble._forest.RandomForestCla
         logger.info('AUC could not be calculated and is thus not included in metrix export: %s', e)
 
     dump(metrics, data_path / 'model_metrics.joblib')
+    logger.info('Metrics successfully saved!')
+
+
+def score_second_model(data_path: Path, model: sklearn.linear_model.LogisticRegression, x_test: pd.DataFrame,
+                y_test: pd.DataFrame):
+    '''Scores model and saves performance metrics
+    
+    Args:
+        data_path: Path where model artifacts will be stored
+        model: Trained model object
+        x_test: Pandas dataframe of independent testing data
+        y_test: Pandas dataframe of dependent testing data
+
+    '''
+
+    # Score model
+    try:
+        ypred_proba_test = model.predict_proba(x_test)[:,1]
+        ypred_bin_test = model.predict(x_test)
+    except NameError as e:
+        logger.error('Model could not be trained: %s', e)
+        sys.exit(1)
+    except TypeError as e:
+        logger.error('Model could not be trained: %s', e)
+        sys.exit(1)
+
+    # Evaluate performance
+    try:
+        auc = sklearn.metrics.roc_auc_score(y_test, ypred_proba_test)
+    except ValueError:
+        logger.warning('Error: AUC could not be computed because your y variable only contains one class.')
+    except TypeError:
+        logger.warning('Error: AUC could not be computed because your y variable only contains one class.')
+    confusion = sklearn.metrics.confusion_matrix(y_test, ypred_bin_test)
+    accuracy = sklearn.metrics.accuracy_score(y_test, ypred_bin_test)
+    classification_report = sklearn.metrics.classification_report(y_test, ypred_bin_test)
+
+    try:
+        print(f'AUC on test: {auc:.3f}')
+    except ValueError as e:
+        logger.warning('Warning, AUC could not be printed: %s', e)
+    print(f'Accuracy on test: {accuracy:.3f}')
+    print()
+    try:
+        print(pd.DataFrame(confusion,
+                    index=['Actual negative','Actual positive'],
+                    columns=['Predicted negative', 'Predicted positive']))
+    except TypeError as e:
+        logger.warning('Because AUC could not be calculated, confusion matrix may be incomplete: %s', e)
+        print(confusion)
+    print()
+
+    try:
+        metrics = {'auc': auc,
+               'confusion': confusion,
+               'accuracy': accuracy,
+               'classification_report': classification_report}
+    except TypeError as e:
+        metrics = {'confusion': confusion,
+                   'accuracy': accuracy,
+                   'classification_report': classification_report}
+        logger.info('AUC could not be calculated and is thus not included in metrix export: %s', e)
+
+    dump(metrics, data_path / 'second_model_metrics.joblib')
     logger.info('Metrics successfully saved!')
