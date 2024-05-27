@@ -13,6 +13,11 @@ logger = logging.getLogger(__name__)
 # Function to load the selected model
 @st.cache_data # Use when function is expensive, has outside dependencies
 def load_model(model_name):
+    '''Loads Model from Artifacts Directory
+
+    Args:
+        model_name: Can either be rf for random forest or lr for logistic regression.
+    '''
     try:
         file_name = str(model_name)+'_classifer.joblib'
         model_path = root / 'artifacts' / file_name
@@ -24,6 +29,12 @@ def load_model(model_name):
 
 # Function to perform predictions using the loaded model
 def predict(model, input_features):
+    '''Performs predictions using loaded model
+
+    Args:
+        model: Model object used to make predictions.
+        input_features: Feature vector the model will use to make prediction.
+    '''
     try:
         prediction = model.predict(input_features)
         return prediction
